@@ -1,70 +1,95 @@
-🚀 Node Auth CRUD JWT
+# API de Autenticação e CRUD com Node.js, MongoDB e JWT
 
-Projeto Node.js + Express com autenticação via JWT e operações CRUD.
-Inclui gerenciamento de usuários, tarefas (todos), validações, conexão com banco de dados e suporte a Docker.
+API REST que registra/autentica usuários (JWT access + refresh) e expõe um CRUD protegido `/todos`.
 
-✨ Funcionalidades
+## Stack
+- Node.js + Express
+- MongoDB + Mongoose
+- JWT (access ~15min, refresh ~7d)
+- Validação com Zod
+- CORS básico + Helmet
+- Bcrypt para hash de senha
 
-Registro e login de usuários
+## Rotas
 
-Autenticação com JWT
+### Autenticação
+- `POST /auth/register` → `{ name, email, password }` → cria usuário com hash e retorna `{ user, accessToken, refreshToken }`
+- `POST /auth/login` → `{ email, password }` → retorna `{ user, accessToken, refreshToken }`
+- `POST /auth/refresh` → `{ refreshToken }` → retorna `{ accessToken, refreshToken, user }`
 
-Rotas protegidas por middleware
+### Usuário
+- `GET /me` → Header: `Authorization: Bearer <access>` → retorna `{ user }`
 
-CRUD de tarefas (Todos)
+### Todos (protegido)
+- `POST /todos` → `{ title, done? }` → cria
+- `GET /todos` → lista apenas do usuário
+- `GET /todos/:id` → busca por id (se pertencer ao usuário)
+- `PUT /todos/:id` → `{ title?, done? }` → atualiza
+- `DELETE /todos/:id` → remove
 
-Validação de dados de entrada
+## Regras de segurança
+- Access token expira em ~15 min (`JWT_ACCESS_EXPIRES`)
+- Refresh token expira em ~7 dias (`JWT_REFRESH_EXPIRES`)
+- Senhas **nunca** em texto claro (bcrypt)
+- Rotas `/me` e `/todos*` protegidas por middleware
+- CORS habilitado (básico)
 
-Arquivo Postman Collection para testes
+## Como rodar localmente
 
-Configuração via .env
+1. **Pré-requisitos**: Node.js 18+, MongoDB rodando.
+2. Clone/extraia o projeto e instale dependências:
+   ```bash
+   npm install
+   ```
+3. Crie um arquivo `.env` baseado em `.env.example`:
+   ```env
+   MONGODB_URI=mongodb://localhost:27017/node_auth_crud_jwt
+   PORT=3000
+   JWT_ACCESS_SECRET=troque-por-um-segredo-forte
+   JWT_REFRESH_SECRET=troque-por-um-segredo-ainda-mais-forte
+   JWT_ACCESS_EXPIRES=15m
+   JWT_REFRESH_EXPIRES=7d
+   ```
+4. Inicie o servidor em desenvolvimento:
+   ```bash
+   npm run dev
+   ```
+   Servidor em: `http://localhost:3000`
 
-Suporte a Docker Compose
+## Modelos
 
-📂 Estrutura do Projeto
-src/
- ├── config/          # Configurações da aplicação
- ├── middlewares/     # Autenticação e outros middlewares
- ├── models/          # Modelos de dados (User, Todo)
- ├── routes/          # Rotas (auth, todos, me)
- ├── utils/           # Funções auxiliares (JWT, etc.)
- ├── validators/      # Schemas de validação
- ├── db.js            # Conexão com banco de dados
- └── server.js        # Inicialização do servidor
+### User
+```ts
+{
+  _id: ObjectId,
+  name: string,
+  email: string (unique),
+  passwordHash: string,
+  tokenVersion: number,
+  createdAt, updatedAt
+}
+```
 
-⚙️ Como Usar
-# Clonar repositório
-git clone https://github.com/seu-usuario/node-auth-crud-jwt.git
-cd node-auth-crud-jwt
+### Todo
+```ts
+{
+  _id: ObjectId,
+  title: string,
+  done: boolean,
+  owner: ObjectId -> User,
+  createdAt, updatedAt
+}
+```
 
-# Instalar dependências
-npm install
+## Estratégia de Refresh Token (stateless com versionamento)
+- O `refreshToken` inclui `tv` (tokenVersion) do usuário.
+- Ao chamar `/auth/refresh`, validamos o token e comparamos `tv` com o `tokenVersion` atual do usuário.
+- Para invalidar refresh tokens antigos (logout global), basta incrementar `tokenVersion` do usuário (rota administrativa opcional).
 
-# Configurar variáveis de ambiente
-cp .env.example .env
+## Testes com Postman/Insomnia
+Importe a collection `postman_collection.json` e configure as variáveis:
+- `baseUrl` (ex.: http://localhost:3000)
+- `accessToken` e `refreshToken` serão preenchidos automaticamente via scripts.
 
-# Rodar servidor em desenvolvimento
-npm run dev
-
-
-Servidor disponível em: http://localhost:3000
-
-Usando Docker
-docker-compose up -d
-
-📌 Rotas Principais
-Método	Rota	Descrição
-POST	/auth/register	Registrar usuário
-POST	/auth/login	Login e token JWT
-GET	/me	Dados do usuário logado
-GET	/todos	Listar tarefas
-POST	/todos	Criar tarefa
-PUT	/todos/:id	Atualizar tarefa
-DELETE	/todos/:id	Remover tarefa
-🧪 Testes
-
-Importe o arquivo postman_collection.json no Postman para testar rapidamente todas as rotas.
-
-📜 Licença
-
-Distribuído sob a licença MIT.
+## Licença
+MIT
